@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dessin par Séries de Fourier</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .container {
+            display: flex;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: initial;
+        }
+        
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .panel h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+            font-size: 16px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        .label_span {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input[type="number"]{
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 100%;
+            margin-top: 5pxy;
+        }
+
+        input[type="range"] {
+            padding: 8px 0px;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 100%;
+        }
+        
+        .value-display {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: bold;
+            text-align: right;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button.secondary {
+            background: #95a5a6;
+        }
+        
+        button.secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        button.danger {
+            background: #e74c3c;
+        }
+        
+        button.danger:hover {
+            background: #c0392b;
+        }
+        
+        .canvas-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 80%;
+            flex: auto;
+            max-height: 120vh;
+        }
+        
+        .canvas-wrapper {
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+        
+        canvas.drawing-mode {
+            cursor: crosshair;
+        }
+        
+        canvas.pan-mode {
+            cursor: grab;
+        }
+        
+        canvas.pan-mode:active {
+            cursor: grabbing;
+        }
+        
+        .canvas-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .canvas-controls button {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        
+        .drawing-info {
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Dessin par Séries de Fourier</h1>
+    
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Contrôles d'animation -->
+            <div class="panel">
+                <h3>⚙️ Animation</h3>
+                
+                <div class="control-group">
+                    <label>Nombre d'épicycles</label>
+                    <input type="number" id="nCoeffs" value="50" min="1" max="500">
+                </div>
+                
+                <div class="control-group">
+                    <div class = "label_span"><label>Vitesse</label><span class="value-display" id="speedValue">0.10</span></div>
+                    <input type="range" id="speed" min="0.01" max="1.0" step="0.01" value="0.10">
+                </div>
+                
+                <div class="control-group">
+                    <div class = "label_span"><label>Longueur traînée</label><span class="value-display" id="trailValue">0.3</span></div>
+                    <input type="range" id="trail" min="0.05" max="1.0" step="0.05" value="0.3">
+                </div>
+                
+                <button onclick="toggleAnimation()" id="playBtn">⏸️ Pause</button>
+                <button onclick="resetAnimation()">🔄 Reset</button>
+                <button onclick="resetView()">🎯 Centrer</button>
+            </div>
+            
+            <!-- Canvas Controls -->
+            <div class="panel">
+                <h3>🎨 Dessin</h3>
+                
+                <div class="control-group">
+                    <label>Nombre de points à échantillonner</label>
+                    <input type="number" id="samplePoints" value="200" min="50" max="1000" step="50">
+                </div>
+                
+                <button onclick="startDrawing()" id="drawBtn">✏️ Dessiner</button>
+                <button onclick="clearDrawing()" class="danger">🗑️ Effacer</button>
+                <button onclick="applyDrawing()" class="secondary">✅ Appliquer le dessin</button>
+            </div>
+            
+            <!-- Formes prédéfinies -->
+            <div class="panel">
+                <h3>📐 Formes</h3>
+                <button onclick="loadShape('star')">⭐ Étoile</button>
+                <button onclick="loadShape('heart')">❤️ Cœur</button>
+                <button onclick="loadShape('spiral')">🌀 Spirale</button>
+                <button onclick="loadShape('flower')">🌸 Fleur</button>
+            </div>
+        </div>
+        
+        <!-- Canvas principal -->
+        <div class="canvas-container">
+            <div class="canvas-wrapper">
+                <canvas id="canvas" width="1000" height="700"></canvas>
+            </div>
+            
+            <div class="drawing-info">
+                💡 En mode dessin: Cliquez et glissez pour dessiner. Fermez la forme en revenant au point de départ.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // État
+        let animationRunning = true;
+        let drawingMode = false;
+        let time = 0;
+        let coeffs = [];
+        let fullPath = [];
+        let epicycleData = [];
+        let drawnPoints = [];
+        let isDrawing = false;
+        
+        // Paramètres
+        let nCoeffs = 50;
+        let speed = 0.10;
+        let trailLength = 0.3;
+        let nDrawPoints = 5000;
+        let nFrames = 500;
+        let samplePoints = 200;
+        let current_shape = 'star';
+        
+        // Zoom & Pan
+        let zoom = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isPanning = false;
+        let lastPanX = 0;
+        let lastPanY = 0;
+        
+        // Event listeners pour les contrôles
+        document.getElementById('speed').addEventListener('input', (e) => {
+            speed = parseFloat(e.target.value);
+            document.getElementById('speedValue').textContent = speed.toFixed(2);
+        });
+        
+        document.getElementById('trail').addEventListener('input', (e) => {
+            trailLength = parseFloat(e.target.value);
+            document.getElementById('trailValue').textContent = trailLength.toFixed(2);
+        });
+        
+        document.getElementById('nCoeffs').addEventListener('change', (e) => {
+            nCoeffs = parseInt(e.target.value);
+            if (fullPath.length > 0) {
+                resetAnimation();
+            }
+        });
+        
+        document.getElementById('samplePoints').addEventListener('change', (e) => {
+            samplePoints = parseInt(e.target.value);
+        });
+        
+        // Canvas events
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('wheel', handleWheel);
+        
+        function handleMouseDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left - canvas.width / 2 - offsetX) / zoom;
+            const y = (e.clientY - rect.top - canvas.height / 2 - offsetY) / zoom;
+            
+            if (drawingMode) {
+                isDrawing = true;
+                drawnPoints = [[x, y]];
+            } else if (e.shiftKey || e.button === 2) {
+                isPanning = true;
+                lastPanX = e.clientX;
+                lastPanY = e.clientY;
+                canvas.style.cursor = 'grabbing';
+            }
+        }
+        
+        function handleMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left - canvas.width / 2 - offsetX) / zoom;
+            const y = (e.clientY - rect.top - canvas.height / 2 - offsetY) / zoom;
+            
+            if (isDrawing && drawingMode) {
+                drawnPoints.push([x, y]);
+            } else if (isPanning) {
+                offsetX += e.clientX - lastPanX;
+                offsetY += e.clientY - lastPanY;
+                lastPanX = e.clientX;
+                lastPanY = e.clientY;
+            }
+        }
+        
+        function handleMouseUp(e) {
+            isDrawing = false;
+            isPanning = false;
+            canvas.style.cursor = drawingMode ? 'crosshair' : 'grab';
+        }
+        
+        function handleWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            zoom = Math.max(0.1, Math.min(3, zoom * delta));
+            document.getElementById('zoom').value = zoom;
+            document.getElementById('zoomValue').textContent = zoom.toFixed(1) + 'x';
+        }
+        
+        function startDrawing() {
+            drawingMode = true;
+            animationRunning = false;
+            drawnPoints = [];
+            canvas.classList.add('drawing-mode');
+            canvas.classList.remove('pan-mode');
+        }
+        
+        function clearDrawing() {
+            drawnPoints = [];
+        }
+        
+        function applyDrawing() {
+            if (drawnPoints.length < 10) {
+                alert('Dessinez au moins 10 points !');
+                return;
+            }
+            
+            // Rééchantillonner les points
+            const resampled = resamplePoints(drawnPoints, samplePoints);
+            
+            drawingMode = false;
+            canvas.classList.remove('drawing-mode');
+            canvas.classList.add('pan-mode');
+            
+            initFourier(resampled);
+            animationRunning = true;
+            draw();
+        }
+        
+        function resamplePoints(points, n) {
+            if (points.length <= n) return points;
+            
+            const resampled = [];
+            const step = points.length / n;
+            
+            for (let i = 0; i < n; i++) {
+                const idx = Math.floor(i * step);
+                resampled.push(points[idx]);
+            }
+            
+            return resampled;
+        }
+        
+        function resetView() {
+            zoom = 1;
+            offsetX = 0;
+            offsetY = 0;
+            document.getElementById('zoom').value = 1;
+            document.getElementById('zoomValue').textContent = '1.0x';
+        }
+        
+        // Formes prédéfinies
+        function createStar() {
+            const points = [];
+            for (let i = 0; i < 10; i++) {
+                if (i%2===0) {
+                    const t = (i / 10) * 2 * Math.PI;
+                    points.push([100 * Math.cos(t), 100 * Math.sin(t)]);
+                }
+                else {
+                    const t = (i / 10) * 2 * Math.PI;
+                    points.push([40 * Math.cos(t), 40 * Math.sin(t)]);
+                }
+            }
+            return points;
+        }
+        
+        function createHeart() {
+            const points = [];
+            for (let i = 0; i < 200; i++) {
+                const t = (i / 200) * 2 * Math.PI;
+                const x = 16 * Math.pow(Math.sin(t), 3);
+                const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+                points.push([x * 8, y * 8]);
+            }
+            return points;
+        }
+        
+        function createSpiral() {
+            const points = [];
+            for (let i = 0; i < 300; i++) {
+                const t = (i / 300) * 4 * Math.PI;
+                const r = 20 + t * 8;
+                points.push([r * Math.cos(t), r * Math.sin(t)]);
+            }
+            return points;
+        }
+        
+        function createFlower() {
+            const points = [];
+            for (let i = 0; i < 200; i++) {
+                const t = (i / 200) * 2 * Math.PI;
+                const r = 80 + 40 * Math.sin(6 * t);
+                points.push([r * Math.cos(t), r * Math.sin(t)]);
+            }
+            return points;
+        }
+        
+        function loadShape(shape) {
+            let points;
+            if (shape === 'star') points = createStar();
+            else if (shape === 'heart') points = createHeart();
+            else if (shape === 'spiral') points = createSpiral();
+            else if (shape === 'flower') points = createFlower();
+            current_shape = shape;
+            
+            initFourier(points);
+            animationRunning = true;
+        }
+        
+        // Calcul des coefficients de Fourier
+        function computeFourierCoefficients(points, n) {
+            const N = points.length;
+            const coeffsList = [];
+            
+            for (let freq = -Math.floor(n/2); freq <= Math.floor(n/2); freq++) {
+                let real = 0, imag = 0;
+                
+                for (let i = 0; i < N; i++) {
+                    const t = i / N;
+                    const angle = -2 * Math.PI * freq * t;
+                    real += points[i][0] * Math.cos(angle) - points[i][1] * Math.sin(angle);
+                    imag += points[i][0] * Math.sin(angle) + points[i][1] * Math.cos(angle);
+                }
+                
+                real /= N;
+                imag /= N;
+                
+                const magnitude = Math.sqrt(real * real + imag * imag);
+                const phase = Math.atan2(imag, real);
+                
+                coeffsList.push({ freq, real, imag, magnitude, phase });
+            }
+            
+            coeffsList.sort((a, b) => b.magnitude - a.magnitude);
+            return coeffsList.slice(0, n);
+        }
+        
+        function precomputePath(coeffs, nPoints) {
+            const path = [];
+            
+            for (let i = 0; i < nPoints; i++) {
+                const t = i / nPoints;
+                let x = 0, y = 0;
+                
+                for (const c of coeffs) {
+                    const angle = 2 * Math.PI * c.freq * t + c.phase;
+                    x += c.magnitude * Math.cos(angle);
+                    y += c.magnitude * Math.sin(angle);
+                }
+                
+                path.push([x, y]);
+            }
+            
+            return path;
+        }
+        
+        function precomputeEpicycles(coeffs, nFrames) {
+            const data = [];
+            
+            for (let i = 0; i < nFrames; i++) {
+                const t = i / nFrames;
+                const frame = [];
+                let x = 0, y = 0;
+                
+                for (const c of coeffs) {
+                    const startX = x, startY = y;
+                    const angle = 2 * Math.PI * c.freq * t + c.phase;
+                    x += c.magnitude * Math.cos(angle);
+                    y += c.magnitude * Math.sin(angle);
+                    
+                    frame.push({ startX, startY, endX: x, endY: y, radius: c.magnitude });
+                }
+                
+                data.push(frame);
+            }
+            
+            return data;
+        }
+        
+        function initFourier(points) {
+            coeffs = computeFourierCoefficients(points, nCoeffs);
+            fullPath = precomputePath(coeffs, nDrawPoints);
+            epicycleData = precomputeEpicycles(coeffs, nFrames);
+            time = 0;
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
+            ctx.scale(zoom, zoom);
+            
+            if (drawingMode) {
+                // Afficher le dessin en cours
+                if (drawnPoints.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(drawnPoints[0][0], drawnPoints[0][1]);
+                    for (let i = 1; i < drawnPoints.length; i++) {
+                        ctx.lineTo(drawnPoints[i][0], drawnPoints[i][1]);
+                    }
+                    ctx.strokeStyle = 'rgba(102, 126, 234, 0.8)';
+                    ctx.lineWidth = 3 / zoom;
+                    ctx.stroke();
+                    
+                    // Point de départ
+                    ctx.beginPath();
+                    ctx.arc(drawnPoints[0][0], drawnPoints[0][1], 5 / zoom, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'green';
+                    ctx.fill();
+                }
+            } else if (animationRunning && epicycleData.length > 0) {
+                // Animation normale
+                const epicycleIdx = Math.floor(time * nFrames) % nFrames;
+                const pathIdx = Math.floor(time * nDrawPoints) % nDrawPoints;
+                
+                const frameData = epicycleData[epicycleIdx];
+                
+                // Épicycles
+                for (const ep of frameData) {
+                    ctx.beginPath();
+                    ctx.arc(ep.startX, ep.startY, ep.radius, 0, 2 * Math.PI);
+                    ctx.strokeStyle = 'rgba(150, 150, 150, 0.3)';
+                    ctx.lineWidth = 1 / zoom;
+                    ctx.stroke();
+                }
+                
+                // Vecteurs
+                ctx.beginPath();
+                ctx.moveTo(frameData[0].startX, frameData[0].startY);
+                for (const ep of frameData) {
+                    ctx.lineTo(ep.endX, ep.endY);
+                }
+                ctx.strokeStyle = 'rgba(100, 150, 255, 0.6)';
+                ctx.lineWidth = 2 / zoom;
+                ctx.stroke();
+                
+                // Points
+                for (const ep of frameData) {
+                    ctx.beginPath();
+                    ctx.arc(ep.endX, ep.endY, 3 / zoom, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'red';
+                    ctx.fill();
+                }
+                
+                // Chemin avec traînée
+                const trailPoints = Math.floor(nDrawPoints * trailLength);
+                ctx.beginPath();
+                
+                const startIdx = pathIdx - trailPoints;
+                if (startIdx >= 0) {
+                    ctx.moveTo(fullPath[startIdx][0], fullPath[startIdx][1]);
+                    for (let i = startIdx + 1; i <= pathIdx; i++) {
+                        ctx.lineTo(fullPath[i][0], fullPath[i][1]);
+                    }
+                } else {
+                    ctx.moveTo(fullPath[nDrawPoints + startIdx][0], fullPath[nDrawPoints + startIdx][1]);
+                    for (let i = nDrawPoints + startIdx + 1; i < nDrawPoints; i++) {
+                        ctx.lineTo(fullPath[i][0], fullPath[i][1]);
+                    }
+                    for (let i = 0; i <= pathIdx; i++) {
+                        ctx.lineTo(fullPath[i][0], fullPath[i][1]);
+                    }
+                }
+
+                ctx.strokeStyle = 'rgba(255, 50, 50, 0.8)';
+                ctx.lineWidth = 2 / zoom;
+                ctx.stroke();
+                
+                // Point actuel
+                const finalX = frameData[frameData.length - 1].endX;
+                const finalY = frameData[frameData.length - 1].endY;
+                ctx.beginPath();
+                ctx.arc(finalX, finalY, 5 / zoom, 0, 2 * Math.PI);
+                ctx.fillStyle = 'red';
+                ctx.fill();
+                
+                time = (time + speed/50) % 1.0;
+            }
+            
+            ctx.restore();
+            
+            requestAnimationFrame(draw);
+        }
+        
+        function toggleAnimation() {
+            if (drawingMode) return;
+            animationRunning = !animationRunning;
+            const btn = document.getElementById('playBtn');
+            btn.textContent = animationRunning ? '⏸️ Pause' : '▶️ Play';
+        }
+        
+        function resetAnimation() {
+            time = 0;
+            if (drawnPoints.length > 0) {
+                const resampled = resamplePoints(drawnPoints, samplePoints);
+                initFourier(resampled);
+            } else {
+                loadShape(current_shape);
+            }
+        }
+        
+        // Démarrage
+        canvas.classList.add('pan-mode');
+        loadShape(current_shape);
+        draw();
+    </script>
+</body>
+</html>
