@@ -240,7 +240,6 @@
             <!-- Formes prédéfinies -->
             <div class="panel">
                 <h3>📐 Formes</h3>
-                <button onclick="loadShape('star')">⭐ Étoile</button>
                 <button onclick="loadShape('heart')">❤️ Cœur</button>
                 <button onclick="loadShape('spiral')">🌀 Spirale</button>
                 <button onclick="loadShape('flower')">🌸 Fleur</button>
@@ -280,7 +279,7 @@
         let nDrawPoints = 5000;
         let nFrames = 500;
         let samplePoints = 200;
-        let current_shape = 'star';
+        let current_shape = 'heart';
         
         // Zoom & Pan
         let zoom = 1;
@@ -464,8 +463,7 @@
         
         function loadShape(shape) {
             let points;
-            if (shape === 'star') points = createStar();
-            else if (shape === 'heart') points = createHeart();
+            if (shape === 'heart') points = createHeart();
             else if (shape === 'spiral') points = createSpiral();
             else if (shape === 'flower') points = createFlower();
             current_shape = shape;
