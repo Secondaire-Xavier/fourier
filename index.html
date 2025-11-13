@@ -118,19 +118,11 @@ button:hover {
 }
 
 button.secondary {
-    background: #95a5a6;
+    background: #31b55b;
 }
 
 button.secondary:hover {
-    background: #7f8c8d;
-}
-
-button.danger {
-    background: #e74c3c;
-}
-
-button.danger:hover {
-    background: #c0392b;
+    background: #358947;
 }
 
 .canvas-container {
@@ -260,7 +252,6 @@ canvas.pan-mode {
                 </div>
                 
                 <button onclick="toggleAnimation()" id="playBtn">⏸️ Pause</button>
-                <button onclick="resetAnimation()">🔄 Reset</button>
                 <button onclick="resetView()">🎯 Centrer</button>
             </div>
             
@@ -274,8 +265,8 @@ canvas.pan-mode {
                 </div>
                 
                 <button onclick="startDrawing()" id="drawBtn">✏️ Dessiner</button>
-                <button onclick="clearDrawing()" class="danger">🗑️ Effacer</button>
                 <button onclick="applyDrawing()" class="secondary">✅ Appliquer le dessin</button>
+                <button onclick="toggleShapeVisibility()" id="toggleShapeBtn">🚫 Masquer la forme</button>
             </div>
         </div>
         
@@ -300,6 +291,7 @@ let fullPath = [];
 let epicycleData = [];
 let drawnPoints = [];
 let isDrawing = false;
+let showShape = true;
 
 // Paramètres
 let nCoeffs = 50;
@@ -350,6 +342,9 @@ document.getElementById('nCoeffs').addEventListener('change', (e) => {
 
 document.getElementById('samplePoints').addEventListener('change', (e) => {
     samplePoints = parseInt(e.target.value);
+    if (drawnPoints.length > 0) {
+        resetAnimation();
+    }
 });
 
 // Gestion des événements souris
@@ -447,19 +442,26 @@ function handleTouchEnd(e) {
 function handleWheel(e) {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    zoom = Math.max(0.1, Math.min(3, zoom * delta));
+    zoom = Math.max(0.02, Math.min(10, zoom * delta));
+}
+
+function resetAnimation() {
+    time = 0;
+    if (drawnPoints.length > 0) {
+        const resampled = resamplePoints(drawnPoints, samplePoints);
+        initFourier(resampled);
+    } else {
+        baseShape();
+    }
 }
 
 function startDrawing() {
     drawingMode = true;
     animationRunning = false;
     drawnPoints = [];
+    epicycleData = [];
     canvas.classList.add('drawing-mode');
     canvas.classList.remove('pan-mode');
-}
-
-function clearDrawing() {
-    drawnPoints = [];
 }
 
 function applyDrawing() {
@@ -474,6 +476,7 @@ function applyDrawing() {
     canvas.classList.add('pan-mode');
     initFourier(resampled);
     animationRunning = true;
+    document.getElementById('playBtn').textContent = '⏸️ Pause';
     draw();
 }
 
@@ -499,7 +502,7 @@ function baseShape() {
     for (let i = 0; i < 200; i++) {
         const t = (i / 200) * 2 * Math.PI;
         const x = 16 * Math.pow(Math.sin(t), 3);
-        const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+        const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - 0.5 * Math.cos(4*t));
         points.push([x * 8, y * 8]);
     }
     initFourier(points);
@@ -568,20 +571,31 @@ function initFourier(points) {
     time = 0;
 }
 
+function toggleShapeVisibility() {
+    showShape = !showShape;
+    const btn = document.getElementById('toggleShapeBtn');
+    btn.textContent = showShape ? '🚫 Masquer la forme' : '👁️ Afficher la forme';
+}
+
 function draw() {
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
     ctx.scale(zoom, zoom);
 
-    if (drawnPoints > 0) {
+    if (drawnPoints.length > 0 && (drawingMode || showShape)) {
         if (drawnPoints.length > 1) {
             ctx.beginPath();
             ctx.moveTo(drawnPoints[0][0], drawnPoints[0][1]);
             for (let i = 1; i < drawnPoints.length; i++) {
                 ctx.lineTo(drawnPoints[i][0], drawnPoints[i][1]);
             }
-            ctx.strokeStyle = 'rgba(102, 126, 234, 0.8)';
+            if (drawingMode) {
+                ctx.strokeStyle = 'rgba(102, 126, 234, 0.8)';
+            } else {
+                ctx.strokeStyle = 'rgba(128, 128, 128, 0.8)';
+            }
             ctx.lineWidth = 3 / zoom;
             ctx.stroke();
             ctx.beginPath();
@@ -589,7 +603,8 @@ function draw() {
             ctx.fillStyle = 'green';
             ctx.fill();
         }
-    } else if (animationRunning && epicycleData.length > 0) {
+    }
+    if (epicycleData.length > 0) {
 
         const epicycleIdx = Math.floor(time * nFrames) % nFrames;
         const pathIdx = Math.floor(time * nDrawPoints) % nDrawPoints;
@@ -648,7 +663,9 @@ function draw() {
         ctx.fillStyle = 'red';
         ctx.fill();
 
-        time = (time + speed/50) % 1.0;
+        if (animationRunning) {
+            time = (time + speed/50) % 1.0;
+        }
     }
 
     ctx.restore();
@@ -660,16 +677,6 @@ function toggleAnimation() {
     animationRunning = !animationRunning;
     const btn = document.getElementById('playBtn');
     btn.textContent = animationRunning ? '⏸️ Pause' : '▶️ Play';
-}
-
-function resetAnimation() {
-    time = 0;
-    if (drawnPoints.length > 0) {
-        const resampled = resamplePoints(drawnPoints, samplePoints);
-        initFourier(resampled);
-    } else {
-        baseShape();
-    }
 }
 
 // Démarrage
