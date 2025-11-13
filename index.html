@@ -513,6 +513,7 @@ function baseShape() {
 
 function computeFourierCoefficients(points, n) {
     const N = points.length;
+    n = Math.min(n, Math.floor(N/2));
     const coeffsList = [];
     for (let freq = -Math.floor(n/2); freq <= Math.floor(n/2); freq++) {
         let real = 0, imag = 0;
